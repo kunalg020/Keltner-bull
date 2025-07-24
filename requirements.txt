@@ -1,6 +1,7 @@
 requests
-pandas
+pandas==2.3.1
+numpy==1.26.4
 pandas_ta
 pytz
 flask
-setuptools
+setuptools<81

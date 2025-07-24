@@ -2,3 +2,5 @@ requests
 pandas
 pandas_ta
 pytz
+flask
+setuptools

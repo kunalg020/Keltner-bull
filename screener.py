@@ -1,8 +1,6 @@
 import requests
 import pandas as pd
 import pandas_ta as ta
-from datetime import datetime
-import pytz
 from flask import Flask
 
 # === CONFIGURATION ===
@@ -11,7 +9,8 @@ DHAN_CLIENT_ID = "1100279968"
 TELEGRAM_BOT_TOKEN = "7876303846:AAHsuPJ9PKUSD1rGFM8o2puPQTS9yJ32H0Y"
 TELEGRAM_CHAT_ID = "-1051646958"
 
-NIFTY_50_SYMBOLS = ["RELIANCE", "TCS", "INFY", "ICICIBANK", "HDFCBANK"]
+# Use a complete F&O list here
+FO_SYMBOLS = ["RELIANCE", "TCS", "INFY", "ICICIBANK", "HDFCBANK", "SBIN", "AXISBANK", "LT", "ITC", "MARUTI"]  # expand this
 
 app = Flask(__name__)
 
@@ -43,7 +42,6 @@ def fetch_ohlcv_dhan(symbol, interval="1d", limit=100):
 
 def meets_criteria(symbol):
     try:
-        # Fetch last 15 daily candles (approx. 3 weeks)
         df_daily = fetch_ohlcv_dhan(symbol, "1d", limit=15)
         df_1h = fetch_ohlcv_dhan(symbol, "1h", limit=100)
 
@@ -54,22 +52,20 @@ def meets_criteria(symbol):
         df_daily.ta.rsi(length=14, append=True)
         df_daily.ta.kc(length=21, scalar=1.0, append=True)
 
-        # Scan last 10 daily candles for daily filter criteria
-        valid_daily = False
-        for i in range(-10, 0):
+        # At least 3 matching candles in last 15 daily bars
+        match_count = 0
+        for i in range(-15, 0):
             row = df_daily.iloc[i]
             if (
                 row["close"] > row["KC_Upper_21_1.0"] and
                 row["close"] > row["EMA_88"] and
                 row["RSI_14"] > 60
             ):
-                valid_daily = True
-                break
+                match_count += 1
 
-        if not valid_daily:
+        if match_count < 3:
             return False
 
-        # 1-hour pattern check
         df_1h.ta.rsi(length=14, append=True)
         df_1h.ta.kc(length=21, scalar=1.0, append=True)
 
@@ -105,11 +101,11 @@ def index():
 @app.route("/run")
 def run_screener():
     matched = []
-    for symbol in NIFTY_50_SYMBOLS:
+    for symbol in FO_SYMBOLS:
         if meets_criteria(symbol):
             matched.append(symbol)
     if matched:
-        msg = "🔔 *Nifty 50 Screener Alerts:*\n" + "\n".join(matched)
+        msg = "🔔 *F&O Screener Alerts:*\n" + "\n".join(matched)
         send_telegram_alert(msg)
         return f"Matched: {matched}"
     else:
